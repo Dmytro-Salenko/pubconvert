@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PubConvert — Open your old Publisher files</title>
+    <meta name="description" content="Convert Microsoft Publisher .PUB files to PDF, Word or SVG. Free, no signup required.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #E5E7EB;
+            border-top-color: #2563EB;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        /* Larger drop zone border */
+        .drop-border {
+            border: 3px dashed #D1D5DB;
+        }
+        .drop-border.drag-over {
+            border-color: #3B82F6;
+            background-color: #EFF6FF;
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-800 min-h-screen flex flex-col">
+
+<main class="flex-1 w-full max-w-2xl mx-auto px-5 py-10 md:py-16">
+
+    <!-- ============================================================ -->
+    <!-- UPLOAD SECTION (initial state) -->
+    <!-- ============================================================ -->
+    <div id="upload-section">
+
+        <!-- Hero -->
+        <div class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-3 leading-tight">
+                Open your old Microsoft&nbsp;Publisher&nbsp;files
+            </h1>
+            <p class="text-lg md:text-xl text-gray-500">
+                Convert .PUB files to PDF, Word or SVG.<br>
+                Free, no signup.
+            </p>
+        </div>
+
+        <!-- Drop zone -->
+        <div id="drop-zone"
+             class="drop-border rounded-2xl p-10 md:p-14 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors mb-6">
+            <div class="text-5xl mb-4" aria-hidden="true">📄</div>
+            <p class="text-xl font-semibold text-gray-700 mb-2">Drop your Publisher file here</p>
+            <p class="text-gray-500">or <span class="text-blue-600 underline">choose a file</span></p>
+            <input type="file" id="file-input" accept=".pub" class="hidden" aria-label="Choose a .pub file">
+        </div>
+
+        <!-- File info (shown after selection) -->
+        <div id="file-info" class="hidden bg-blue-50 rounded-xl px-5 py-4 mb-6 flex items-center justify-between">
+            <div class="min-w-0">
+                <p id="file-name" class="font-semibold text-gray-800 truncate"></p>
+                <p id="file-size" class="text-sm text-gray-500"></p>
+            </div>
+            <button id="remove-file" class="ml-4 text-gray-400 hover:text-red-500 text-2xl leading-none flex-shrink-0"
+                    aria-label="Remove file">&times;</button>
+        </div>
+
+        <!-- Format cards -->
+        <div class="grid grid-cols-3 gap-3 md:gap-4 mb-8">
+            <!-- PDF -->
+            <label class="format-card cursor-pointer block">
+                <input type="radio" name="format" value="pdf" class="hidden peer" checked>
+                <div class="border-2 rounded-xl p-4 md:p-6 text-center transition-colors
+                            peer-checked:border-blue-500 peer-checked:bg-blue-50
+                            border-gray-200 hover:border-gray-300">
+                    <div class="text-3xl md:text-4xl mb-2" aria-hidden="true">📕</div>
+                    <div class="text-lg md:text-xl font-bold">PDF</div>
+                    <div class="text-sm text-gray-500 mt-1">View or print</div>
+                </div>
+            </label>
+            <!-- WORD -->
+            <label class="format-card cursor-pointer block">
+                <input type="radio" name="format" value="docx" class="hidden peer">
+                <div class="border-2 rounded-xl p-4 md:p-6 text-center transition-colors
+                            peer-checked:border-blue-500 peer-checked:bg-blue-50
+                            border-gray-200 hover:border-gray-300">
+                    <div class="text-3xl md:text-4xl mb-2" aria-hidden="true">📝</div>
+                    <div class="text-lg md:text-xl font-bold">WORD</div>
+                    <div class="text-sm text-gray-500 mt-1">Continue editing</div>
+                    <div class="text-xs text-gray-400">.docx</div>
+                </div>
+            </label>
+            <!-- SVG -->
+            <label class="format-card cursor-pointer block">
+                <input type="radio" name="format" value="svg" class="hidden peer">
+                <div class="border-2 rounded-xl p-4 md:p-6 text-center transition-colors
+                            peer-checked:border-blue-500 peer-checked:bg-blue-50
+                            border-gray-200 hover:border-gray-300">
+                    <div class="text-3xl md:text-4xl mb-2" aria-hidden="true">🎨</div>
+                    <div class="text-lg md:text-xl font-bold">SVG</div>
+                    <div class="text-sm text-gray-500 mt-1">For designers</div>
+                </div>
+            </label>
+        </div>
+
+        <!-- Convert button -->
+        <button id="convert-btn" disabled
+                class="w-full py-4 text-xl font-bold rounded-xl text-white
+                       bg-blue-600 hover:bg-blue-700
+                       disabled:bg-gray-300 disabled:cursor-not-allowed
+                       transition-colors focus:outline-none focus:ring-4 focus:ring-blue-200">
+            Convert
+        </button>
+
+        <!-- Privacy note -->
+        <p class="text-center text-sm text-gray-400 mt-4">
+            No signup. Files are automatically deleted after 10&nbsp;minutes.
+        </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- PROGRESS SECTION -->
+    <!-- ============================================================ -->
+    <div id="progress-section" class="hidden text-center py-20">
+        <div class="spinner mx-auto mb-6"></div>
+        <p id="progress-text" class="text-xl text-gray-700">Uploading…</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SUCCESS SECTION -->
+    <!-- ============================================================ -->
+    <div id="success-section" class="hidden text-center py-12">
+        <div class="text-6xl mb-4" aria-hidden="true">✅</div>
+        <h2 class="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Your file is ready</h2>
+
+        <a id="download-link" href="#" download
+           class="inline-block px-10 py-4 text-xl font-bold rounded-xl text-white
+                  bg-green-600 hover:bg-green-700 transition-colors
+                  focus:outline-none focus:ring-4 focus:ring-green-200">
+            Download
+        </a>
+
+        <div class="mt-6">
+            <button id="convert-another"
+                    class="text-blue-600 hover:underline text-lg focus:outline-none">
+                Convert another file
+            </button>
+        </div>
+
+        <!-- Coffee block (hidden if COFFEE_URL is empty) -->
+        <div id="coffee-block" class="hidden mt-12 pt-8 border-t border-gray-200">
+            <p class="text-lg text-gray-600 mb-1">Did PubConvert help you? ☕</p>
+            <p class="text-sm text-gray-500 mb-4">
+                PubConvert is free. If it saved your file,<br>
+                you can buy the developer a coffee.
+            </p>
+            <a id="coffee-link" href="#" target="_blank" rel="noopener noreferrer"
+               class="inline-block px-6 py-3 text-lg font-semibold rounded-xl text-white
+                      bg-amber-500 hover:bg-amber-600 transition-colors
+                      focus:outline-none focus:ring-4 focus:ring-amber-200">
+                Buy me a coffee — €5
+            </a>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ERROR SECTION -->
+    <!-- ============================================================ -->
+    <div id="error-section" class="hidden text-center py-12">
+        <div class="text-6xl mb-4" aria-hidden="true">❌</div>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h2>
+        <p id="error-text" class="text-gray-600 mb-6 max-w-md mx-auto"></p>
+        <button id="try-again"
+                class="px-8 py-3 text-lg font-semibold rounded-xl text-white
+                       bg-blue-600 hover:bg-blue-700 transition-colors
+                       focus:outline-none focus:ring-4 focus:ring-blue-200">
+            Try again
+        </button>
+    </div>
+
+</main>
+
+<footer class="text-center text-sm text-gray-400 py-6 px-4">
+    PubConvert — free tool by a solo developer
+</footer>
+
+<!-- ================================================================ -->
+<!-- SCRIPT -->
+<!-- ================================================================ -->
+<script>
+(function () {
+    "use strict";
+
+    // --- Analytics (console-only, no external services) ---
+    function track(event) {
+        if (typeof console !== "undefined") {
+            console.log("[PubConvert]", event, new Date().toISOString());
+        }
+    }
+
+    // --- Config ---
+    var config = { max_upload_mb: 25, coffee_url: "" };
+    fetch("/api/config")
+        .then(function (r) { return r.json(); })
+        .then(function (c) { config = c; })
+        .catch(function () {});
+
+    // --- Elements ---
+    var dropZone        = document.getElementById("drop-zone");
+    var fileInput       = document.getElementById("file-input");
+    var fileInfo        = document.getElementById("file-info");
+    var fileNameEl      = document.getElementById("file-name");
+    var fileSizeEl      = document.getElementById("file-size");
+    var removeFileBtn   = document.getElementById("remove-file");
+    var convertBtn      = document.getElementById("convert-btn");
+    var uploadSection   = document.getElementById("upload-section");
+    var progressSection = document.getElementById("progress-section");
+    var progressText    = document.getElementById("progress-text");
+    var successSection  = document.getElementById("success-section");
+    var downloadLink    = document.getElementById("download-link");
+    var convertAnother  = document.getElementById("convert-another");
+    var coffeeBlock     = document.getElementById("coffee-block");
+    var coffeeLink      = document.getElementById("coffee-link");
+    var errorSection    = document.getElementById("error-section");
+    var errorText       = document.getElementById("error-text");
+    var tryAgainBtn     = document.getElementById("try-again");
+
+    var selectedFile = null;
+
+    // --- Helpers ---
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+        return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
+    function showSection(section) {
+        [uploadSection, progressSection, successSection, errorSection].forEach(function (s) {
+            s.classList.add("hidden");
+        });
+        section.classList.remove("hidden");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    // --- File selection ---
+    function selectFile(file) {
+        if (!file.name.toLowerCase().endsWith(".pub")) {
+            showError("Please select a .pub file (Microsoft Publisher).");
+            return;
+        }
+        var maxBytes = (config.max_upload_mb || 25) * 1024 * 1024;
+        if (file.size > maxBytes) {
+            showError("File is too large. Maximum size is " + (config.max_upload_mb || 25) + " MB.");
+            return;
+        }
+        if (file.size === 0) {
+            showError("The selected file is empty.");
+            return;
+        }
+        selectedFile = file;
+        fileNameEl.textContent = file.name;
+        fileSizeEl.textContent = formatBytes(file.size);
+        fileInfo.classList.remove("hidden");
+        dropZone.classList.add("hidden");
+        convertBtn.disabled = false;
+        track("file_selected");
+    }
+
+    function clearFile() {
+        selectedFile = null;
+        fileInput.value = "";
+        fileInfo.classList.add("hidden");
+        dropZone.classList.remove("hidden");
+        convertBtn.disabled = true;
+    }
+
+    function showError(message) {
+        errorText.textContent = message;
+        showSection(errorSection);
+    }
+
+    // --- Drop zone ---
+    dropZone.addEventListener("click", function () { fileInput.click(); });
+
+    dropZone.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+    });
+    dropZone.addEventListener("dragleave", function () {
+        dropZone.classList.remove("drag-over");
+    });
+    dropZone.addEventListener("drop", function (e) {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+        if (e.dataTransfer.files.length) selectFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener("change", function () {
+        if (fileInput.files.length) selectFile(fileInput.files[0]);
+    });
+
+    removeFileBtn.addEventListener("click", clearFile);
+
+    // --- Convert ---
+    var PROGRESS_MESSAGES = [
+        "Uploading…",
+        "Opening Publisher file…",
+        "Converting…",
+        "Almost ready…"
+    ];
+
+    convertBtn.addEventListener("click", function () {
+        if (!selectedFile) return;
+
+        var format = document.querySelector('input[name="format"]:checked').value;
+        track("conversion_started");
+        showSection(progressSection);
+
+        // Cycle progress messages
+        var msgIndex = 0;
+        progressText.textContent = PROGRESS_MESSAGES[0];
+        var msgTimer = setInterval(function () {
+            msgIndex++;
+            if (msgIndex < PROGRESS_MESSAGES.length) {
+                progressText.textContent = PROGRESS_MESSAGES[msgIndex];
+            }
+        }, 2500);
+
+        var formData = new FormData();
+        formData.append("file", selectedFile);
+        formData.append("format", format);
+
+        fetch("/api/convert", { method: "POST", body: formData })
+            .then(function (response) {
+                clearInterval(msgTimer);
+                if (!response.ok) {
+                    return response.json().then(function (err) {
+                        throw new Error(err.detail || "Conversion failed.");
+                    });
+                }
+                return response.json();
+            })
+            .then(function (result) {
+                downloadLink.href = result.download_url;
+                downloadLink.download = result.filename;
+                downloadLink.textContent = "Download " + result.filename;
+
+                // Show coffee block if configured
+                if (config.coffee_url) {
+                    coffeeLink.href = config.coffee_url;
+                    coffeeBlock.classList.remove("hidden");
+                } else {
+                    coffeeBlock.classList.add("hidden");
+                }
+
+                showSection(successSection);
+                track("conversion_success");
+            })
+            .catch(function (err) {
+                clearInterval(msgTimer);
+                track("conversion_failed");
+                showError(err.message || "Something went wrong. Please try again.");
+            });
+    });
+
+    // --- Download tracking ---
+    downloadLink.addEventListener("click", function () { track("download_clicked"); });
+
+    // --- Coffee tracking ---
+    coffeeLink.addEventListener("click", function () { track("coffee_clicked"); });
+
+    // --- Convert another ---
+    convertAnother.addEventListener("click", function () {
+        clearFile();
+        coffeeBlock.classList.add("hidden");
+        showSection(uploadSection);
+    });
+
+    // --- Try again ---
+    tryAgainBtn.addEventListener("click", function () {
+        showSection(uploadSection);
+    });
+
+})();
+</script>
+
+</body>
+</html>
