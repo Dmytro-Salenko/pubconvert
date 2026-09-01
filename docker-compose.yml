@@ -2,7 +2,7 @@ services:
   pubconvert:
     build: .
     ports:
-      - "8080:8000"
+      - "127.0.0.1:8080:8000"
     env_file:
       - .env
     restart: unless-stopped

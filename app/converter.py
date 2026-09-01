@@ -1,5 +1,6 @@
 """LibreOffice-based converter for Microsoft Publisher (.pub) files."""
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -23,23 +24,31 @@ def convert(input_path: Path, output_dir: Path, fmt: str, timeout: int = 120) ->
 
     Raises:
         ConversionError: If conversion fails at any step.
+
+    After successful conversion, input file and LibreOffice profile
+    are deleted. Only the output file remains in output_dir.
     """
     if fmt == "docx":
-        return _convert_to_docx(input_path, output_dir, timeout)
+        output_name = _convert_to_docx(input_path, output_dir, timeout)
+    else:
+        # Direct conversion for PDF and SVG
+        _run_soffice(
+            extra_args=["--convert-to", fmt],
+            input_path=input_path,
+            output_dir=output_dir,
+            timeout=timeout,
+        )
 
-    # Direct conversion for PDF and SVG
-    _run_soffice(
-        extra_args=["--convert-to", fmt],
-        input_path=input_path,
-        output_dir=output_dir,
-        timeout=timeout,
-    )
+        output_file = output_dir / f"{input_path.stem}.{fmt}"
+        if not output_file.exists():
+            raise ConversionError("Conversion produced no output file")
 
-    output_file = output_dir / f"{input_path.stem}.{fmt}"
-    if not output_file.exists():
-        raise ConversionError(f"Conversion produced no output file")
+        output_name = output_file.name
 
-    return output_file.name
+    # Privacy: remove source file and LO profile immediately
+    _cleanup_job_artifacts(output_dir, keep_filename=output_name)
+
+    return output_name
 
 
 def _convert_to_docx(input_path: Path, output_dir: Path, timeout: int) -> str:
@@ -79,6 +88,24 @@ def _convert_to_docx(input_path: Path, output_dir: Path, timeout: int) -> str:
     pdf_path.unlink(missing_ok=True)
 
     return docx_path.name
+
+
+def _cleanup_job_artifacts(output_dir: Path, keep_filename: str) -> None:
+    """Remove everything in output_dir except the final output file.
+
+    Deletes input.pub, lo_profile/, and any other temporary artifacts
+    that LibreOffice may have created.
+    """
+    for entry in output_dir.iterdir():
+        if entry.name == keep_filename:
+            continue
+        try:
+            if entry.is_dir():
+                shutil.rmtree(entry, ignore_errors=True)
+            else:
+                entry.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _run_soffice(
@@ -126,5 +153,5 @@ def _run_soffice(
         )
 
     if result.returncode != 0:
-        stderr = result.stderr.strip()[:200] if result.stderr else "unknown error"
-        raise ConversionError(f"LibreOffice conversion failed: {stderr}")
+        # Do not leak stderr details to the user — may contain paths/metadata
+        raise ConversionError("LibreOffice conversion failed.")
