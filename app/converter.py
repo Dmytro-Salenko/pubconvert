@@ -30,8 +30,10 @@ def convert(input_path: Path, output_dir: Path, fmt: str, timeout: int = 120) ->
     """
     if fmt == "docx":
         output_name = _convert_to_docx(input_path, output_dir, timeout)
+    elif fmt == "svg":
+        output_name = _convert_to_svg(input_path, output_dir, timeout)
     else:
-        # Direct conversion for PDF and SVG
+        # Direct conversion for PDF
         _run_soffice(
             extra_args=["--convert-to", fmt],
             input_path=input_path,
@@ -89,6 +91,42 @@ def _convert_to_docx(input_path: Path, output_dir: Path, timeout: int) -> str:
     pdf_path.unlink(missing_ok=True)
 
     return docx_path.name
+
+
+def _convert_to_svg(input_path: Path, output_dir: Path, timeout: int) -> str:
+    """Two-step conversion: PUB → PDF → SVG.
+
+    Direct PUB → SVG export places background shapes/images after text in DOM tree,
+    occluding text. Converting to PDF first flattens shapes into correct z-index layers.
+    """
+    # Step 1: PUB → PDF
+    _run_soffice(
+        extra_args=["--convert-to", "pdf"],
+        input_path=input_path,
+        output_dir=output_dir,
+        timeout=timeout,
+    )
+
+    pdf_path = output_dir / f"{input_path.stem}.pdf"
+    if not pdf_path.exists():
+        raise ConversionError("Failed to create intermediate PDF")
+
+    # Step 2: PDF → SVG
+    _run_soffice(
+        extra_args=["--convert-to", "svg"],
+        input_path=pdf_path,
+        output_dir=output_dir,
+        timeout=timeout,
+    )
+
+    svg_path = output_dir / f"{input_path.stem}.svg"
+    if not svg_path.exists():
+        raise ConversionError("Failed to create SVG from intermediate PDF")
+
+    # Clean up intermediate PDF
+    pdf_path.unlink(missing_ok=True)
+
+    return svg_path.name
 
 
 def _cleanup_job_artifacts(output_dir: Path, keep_filename: str) -> None:
