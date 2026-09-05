@@ -72,8 +72,9 @@ def _convert_to_docx(input_path: Path, output_dir: Path, timeout: int) -> str:
     # Step 2: PDF → DOCX (force Writer to open the PDF)
     _run_soffice(
         extra_args=[
-            "--infilter", "writer_pdf_import",
-            "--convert-to", "docx",
+            "--infilter=writer_pdf_import",
+            "--convert-to",
+            "docx",
         ],
         input_path=pdf_path,
         output_dir=output_dir,
