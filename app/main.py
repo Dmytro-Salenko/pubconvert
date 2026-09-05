@@ -1,4 +1,4 @@
-"""PubConvert — convert Microsoft Publisher files to PDF, DOCX, SVG."""
+"""PubConvert — convert Microsoft Publisher files to PDF, DOCX."""
 
 import asyncio
 import logging
@@ -148,7 +148,7 @@ async def convert_file(
     Returns a JSON object with download_url and filename.
     """
     # --- Validate format ---
-    allowed_formats = ("pdf", "docx", "svg")
+    allowed_formats = ("pdf", "docx")
     if format not in allowed_formats:
         raise HTTPException(
             status_code=400,

@@ -1,6 +1,6 @@
 # PubConvert
 
-Convert Microsoft Publisher (.pub) files to **PDF**, **Word (.docx)**, or **SVG**.  
+Convert Microsoft Publisher (.pub) files to **PDF** or **Word (.docx)**.  
 Free, no signup, no cloud services — runs entirely on your server.
 
 ---
@@ -57,7 +57,6 @@ See `.env.example` for a template.
 | Format | Method |
 |---|---|
 | **PDF** | Direct: `soffice --convert-to pdf` via LibreOffice Draw |
-| **SVG** | Direct: `soffice --convert-to svg` via LibreOffice Draw |
 | **DOCX** | Two-step: PUB → PDF (Draw), then PDF → DOCX (Writer) |
 
 > **Note:** DOCX conversion is best-effort. Publisher files use complex layouts
@@ -200,7 +199,7 @@ sudo certbot --nginx -d pubconvert.example.com
 |---|---|---|
 | `GET` | `/health` | Health check → `{"status": "ok"}` |
 | `GET` | `/api/config` | Public config for frontend |
-| `POST` | `/api/convert` | Upload `.pub` + `format` (pdf/docx/svg) → download URL |
+| `POST` | `/api/convert` | Upload `.pub` + `format` (pdf/docx) → download URL |
 | `GET` | `/api/files/{job_id}/{filename}` | Download converted file |
 
 ---
